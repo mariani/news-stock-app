@@ -14,7 +14,7 @@ export function setAlphaVantageApiKey(key: string) {
 }
 
 // Detect if running on localhost (where direct API calls work)
-// or on a deployed site (where we need a CORS proxy for NewsAPI)
+// or on a deployed site (where we need a CORS proxy)
 function isLocalhost(): boolean {
   if (typeof window === 'undefined') {
     return true;
@@ -25,7 +25,16 @@ function isLocalhost(): boolean {
   );
 }
 
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+const CORS_PROXY = 'https://api.codetabs.com/v1/proxy/?quest=';
+
+function buildProxiedUrl(baseUrl: string, path: string, params: Record<string, string>): string {
+  const queryString = Object.entries(params)
+    .map(([k, v]) => `${k}=${v}`)
+    .join('&');
+  const targetUrl = `${baseUrl}${path}?${queryString}`;
+  // codetabs expects the URL with ? and & encoded as %3F and %26
+  return CORS_PROXY + encodeURIComponent(targetUrl);
+}
 
 export const newsApiClient = axios.create({
   baseURL: NEWS_API_BASE_URL,
@@ -35,12 +44,14 @@ export const newsApiClient = axios.create({
 newsApiClient.interceptors.request.use(config => {
   config.params = {...config.params, apiKey: newsApiKey};
 
-  // On deployed sites, route through CORS proxy
   if (!isLocalhost() && config.baseURL) {
-    const params = new URLSearchParams(config.params).toString();
-    const targetUrl = `${config.baseURL}${config.url}?${params}`;
+    const fullUrl = buildProxiedUrl(
+      config.baseURL,
+      config.url ?? '',
+      config.params,
+    );
     config.baseURL = '';
-    config.url = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
+    config.url = fullUrl;
     config.params = {};
   }
 
@@ -55,12 +66,14 @@ export const alphaVantageClient = axios.create({
 alphaVantageClient.interceptors.request.use(config => {
   config.params = {...config.params, apikey: alphaVantageApiKey};
 
-  // Alpha Vantage also needs CORS proxy on deployed sites
   if (!isLocalhost() && config.baseURL) {
-    const params = new URLSearchParams(config.params).toString();
-    const targetUrl = `${config.baseURL}${config.url}?${params}`;
+    const fullUrl = buildProxiedUrl(
+      config.baseURL,
+      config.url ?? '',
+      config.params,
+    );
     config.baseURL = '';
-    config.url = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
+    config.url = fullUrl;
     config.params = {};
   }
 
