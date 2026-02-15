@@ -28,12 +28,11 @@ function isLocalhost(): boolean {
 const CORS_PROXY = 'https://api.codetabs.com/v1/proxy/?quest=';
 
 function buildProxiedUrl(baseUrl: string, path: string, params: Record<string, string>): string {
+  // codetabs expects the base URL unencoded, but ? and & encoded as %3F and %26
   const queryString = Object.entries(params)
-    .map(([k, v]) => `${k}=${v}`)
-    .join('&');
-  const targetUrl = `${baseUrl}${path}?${queryString}`;
-  // codetabs expects the URL with ? and & encoded as %3F and %26
-  return CORS_PROXY + encodeURIComponent(targetUrl);
+    .map(([k, v]) => `${encodeURIComponent(k)}%3D${encodeURIComponent(v)}`)
+    .join('%26');
+  return `${CORS_PROXY}${baseUrl}${path}%3F${queryString}`;
 }
 
 export const newsApiClient = axios.create({
