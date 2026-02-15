@@ -59,19 +59,19 @@ export async function fetchGlobalQuote(
 export async function searchSymbol(
   keywords: string,
 ): Promise<SymbolSearchResult[]> {
-  return alphaVantageLimiter.schedule(async () => {
-    const response = await alphaVantageClient.get<AlphaVantageSearchResult>(
-      '/query',
-      {params: {function: 'SYMBOL_SEARCH', keywords}},
-    );
-    return (response.data.bestMatches ?? []).map(match => ({
-      symbol: match['1. symbol'],
-      name: match['2. name'],
-      type: match['3. type'],
-      region: match['4. region'],
-      currency: match['8. currency'],
-    }));
-  });
+  // Search bypasses the rate limiter so it responds instantly
+  // even when quote fetches are queued
+  const response = await alphaVantageClient.get<AlphaVantageSearchResult>(
+    '/query',
+    {params: {function: 'SYMBOL_SEARCH', keywords}},
+  );
+  return (response.data.bestMatches ?? []).map(match => ({
+    symbol: match['1. symbol'],
+    name: match['2. name'],
+    type: match['3. type'],
+    region: match['4. region'],
+    currency: match['8. currency'],
+  }));
 }
 
 export async function fetchBulkQuotes(
