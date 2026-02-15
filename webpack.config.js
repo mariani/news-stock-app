@@ -3,7 +3,7 @@ const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const fs = require('fs');
 
-// Read .env file and parse key=value pairs
+// Read API keys from environment variables first, then fall back to .env file
 const envFile = path.resolve(__dirname, '.env');
 const envVars = {};
 if (fs.existsSync(envFile)) {
@@ -14,6 +14,9 @@ if (fs.existsSync(envFile)) {
     }
   });
 }
+// Environment variables (e.g. from CI) take precedence over .env file
+if (process.env.NEWS_API_KEY) envVars.NEWS_API_KEY = process.env.NEWS_API_KEY;
+if (process.env.ALPHA_VANTAGE_API_KEY) envVars.ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY;
 
 const compileNodeModules = [
   'react-native',
