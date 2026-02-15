@@ -8,6 +8,7 @@ interface Props {
 }
 
 export function ScoreRow({game}: Props) {
+  const isPre = game.state === 'pre';
   const isLive = game.state === 'in';
 
   return (
@@ -20,17 +21,22 @@ export function ScoreRow({game}: Props) {
           {game.homeTeam}
         </Text>
       </View>
-      {isLive ? (
+      {isPre ? (
+        <Text style={styles.vs}>vs</Text>
+      ) : (
         <View style={styles.scores}>
           <Text style={styles.score}>{game.awayScore}</Text>
           <Text style={styles.score}>{game.homeScore}</Text>
         </View>
-      ) : (
-        <Text style={styles.vs}>vs</Text>
       )}
       <View style={styles.status}>
         <Text style={styles.league}>{game.league}</Text>
-        <Text style={[styles.clock, !isLive && styles.clockPre]}>
+        <Text
+          style={[
+            styles.clock,
+            isPre && styles.clockPre,
+            !isPre && !isLive && styles.clockPost,
+          ]}>
           {game.statusDetail}
         </Text>
       </View>
@@ -91,5 +97,8 @@ const styles = StyleSheet.create({
   clockPre: {
     color: colors.textSecondary,
     fontWeight: '400',
+  },
+  clockPost: {
+    color: colors.textSecondary,
   },
 });

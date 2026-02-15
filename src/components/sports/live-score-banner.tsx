@@ -14,13 +14,15 @@ export function LiveScoreBanner() {
   }
 
   const hasLive = liveGames.some(g => g.state === 'in');
+  const hasUpcoming = liveGames.some(g => g.state === 'pre');
+  const label = hasLive ? 'LIVE' : hasUpcoming ? 'UPCOMING' : 'FINAL';
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         {hasLive && <View style={styles.liveDot} />}
         <Text style={[styles.headerText, !hasLive && styles.headerTextPre]}>
-          {hasLive ? 'LIVE' : 'UPCOMING'}
+          {label}
         </Text>
       </View>
       {liveGames.map(game => (
