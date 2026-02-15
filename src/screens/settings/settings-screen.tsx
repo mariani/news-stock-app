@@ -26,11 +26,15 @@ export function SettingsScreen() {
   const rssFeedUrls = useNewsStore(s => s.rssFeedUrls);
   const addRssFeed = useNewsStore(s => s.addRssFeed);
   const removeRssFeed = useNewsStore(s => s.removeRssFeed);
+  const sportsTeams = useNewsStore(s => s.sportsTeams);
+  const addSportsTeam = useNewsStore(s => s.addSportsTeam);
+  const removeSportsTeam = useNewsStore(s => s.removeSportsTeam);
   const watchlists = useStocksStore(s => s.watchlists);
   const createWatchlist = useStocksStore(s => s.createWatchlist);
   const deleteWatchlist = useStocksStore(s => s.deleteWatchlist);
 
   const [newFeedUrl, setNewFeedUrl] = useState('');
+  const [newTeamName, setNewTeamName] = useState('');
   const [newWatchlistName, setNewWatchlistName] = useState('');
 
   const handleToggleTopic = (topic: NewsTopic) => {
@@ -54,6 +58,23 @@ export function SettingsScreen() {
       {text: 'Cancel', style: 'cancel'},
       {text: 'Remove', style: 'destructive', onPress: () => removeRssFeed(url)},
     ]);
+  };
+
+  const handleAddTeam = () => {
+    const teams = newTeamName
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean);
+    teams.forEach(addSportsTeam);
+    if (teams.length > 0) {
+      setNewTeamName('');
+    }
+  };
+
+  const handleRemoveTeam = (team: string) => {
+    if (confirm(`Remove "${team}" from your teams?`)) {
+      removeSportsTeam(team);
+    }
   };
 
   const handleCreateWatchlist = () => {
@@ -120,6 +141,31 @@ export function SettingsScreen() {
         </View>
       </View>
 
+      <SectionHeader title="Sports Teams" />
+      <View style={styles.section}>
+        {sportsTeams.map(team => (
+          <View key={team} style={styles.listRow}>
+            <Text style={styles.teamName}>{team}</Text>
+            <TouchableOpacity onPress={() => handleRemoveTeam(team)}>
+              <Text style={styles.removeButton}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+        <View style={styles.addRow}>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Lakers, Yankees, Arsenal"
+            placeholderTextColor={colors.textSecondary}
+            value={newTeamName}
+            onChangeText={setNewTeamName}
+            onSubmitEditing={handleAddTeam}
+          />
+          <TouchableOpacity style={styles.addButton} onPress={handleAddTeam}>
+            <Text style={styles.addButtonText}>Add</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <SectionHeader title="Watchlists" />
       <View style={styles.section}>
         {watchlists.map(list => (
@@ -151,7 +197,7 @@ export function SettingsScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          Long press on an RSS feed or watchlist to delete it.
+          Long press on an RSS feed, sports team, or watchlist to delete it.
         </Text>
       </View>
     </ScrollView>
@@ -202,6 +248,16 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.text,
     flex: 1,
+  },
+  teamName: {
+    fontSize: fontSize.lg,
+    color: colors.text,
+    flex: 1,
+  },
+  removeButton: {
+    fontSize: fontSize.lg,
+    color: colors.negative,
+    paddingHorizontal: spacing.sm,
   },
   watchlistName: {
     fontSize: fontSize.lg,

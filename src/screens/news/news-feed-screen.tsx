@@ -6,6 +6,7 @@ import {ArticleCard} from '@/components/news/article-card';
 import {TopicFilterBar} from '@/components/news/topic-filter-bar';
 import {LoadingSpinner} from '@/components/common/loading-spinner';
 import {ErrorBanner} from '@/components/common/error-banner';
+import {LiveScoreBanner} from '@/components/sports/live-score-banner';
 import {EmptyState} from '@/components/common/empty-state';
 import {colors} from '@/constants/theme';
 import type {NewsStackParamList} from '@/navigation/types';
@@ -47,6 +48,7 @@ export function NewsFeedScreen({navigation}: Props) {
   return (
     <View style={styles.container}>
       <TopicFilterBar />
+      <LiveScoreBanner />
       {error && <ErrorBanner message={error} onRetry={fetchArticles} />}
       <FlatList
         data={articles}

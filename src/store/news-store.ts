@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   fetchTopHeadlines,
   fetchRssFeed,
+  searchNews,
   mergeAndSortArticles,
 } from '@/services/news-service';
 import {DEFAULT_TOPICS} from '@/constants/topics';
@@ -13,6 +14,7 @@ import type {NewsTopic} from '@/types/settings';
 interface NewsState {
   selectedTopics: NewsTopic[];
   rssFeedUrls: string[];
+  sportsTeams: string[];
   articles: Article[];
   isLoading: boolean;
   error: string | null;
@@ -21,6 +23,8 @@ interface NewsState {
   setTopics: (topics: NewsTopic[]) => void;
   addRssFeed: (url: string) => void;
   removeRssFeed: (url: string) => void;
+  addSportsTeam: (team: string) => void;
+  removeSportsTeam: (team: string) => void;
   fetchArticles: () => Promise<void>;
 }
 
@@ -29,6 +33,7 @@ export const useNewsStore = create<NewsState>()(
     (set, get) => ({
       selectedTopics: DEFAULT_TOPICS,
       rssFeedUrls: [],
+      sportsTeams: [],
       articles: [],
       isLoading: false,
       error: null,
@@ -59,10 +64,22 @@ export const useNewsStore = create<NewsState>()(
           rssFeedUrls: state.rssFeedUrls.filter(u => u !== url),
         })),
 
+      addSportsTeam: (team: string) => {
+        const {sportsTeams} = get();
+        if (sportsTeams.includes(team)) return;
+        set({sportsTeams: [...sportsTeams, team]});
+        get().fetchArticles();
+      },
+
+      removeSportsTeam: (team: string) =>
+        set(state => ({
+          sportsTeams: state.sportsTeams.filter(t => t !== team),
+        })),
+
       fetchArticles: async () => {
         set({isLoading: true, error: null});
         try {
-          const {selectedTopics, rssFeedUrls} = get();
+          const {selectedTopics, rssFeedUrls, sportsTeams} = get();
 
           const topicPromises = selectedTopics.map(topic =>
             fetchTopHeadlines(topic).catch(() => [] as Article[]),
@@ -70,10 +87,14 @@ export const useNewsStore = create<NewsState>()(
           const rssPromises = rssFeedUrls.map(url =>
             fetchRssFeed(url).catch(() => [] as Article[]),
           );
+          const teamPromises = sportsTeams.map(team =>
+            searchNews(team).catch(() => [] as Article[]),
+          );
 
           const results = await Promise.all([
             ...topicPromises,
             ...rssPromises,
+            ...teamPromises,
           ]);
           const articles = mergeAndSortArticles(...results);
 
@@ -95,6 +116,7 @@ export const useNewsStore = create<NewsState>()(
       partialize: state => ({
         selectedTopics: state.selectedTopics,
         rssFeedUrls: state.rssFeedUrls,
+        sportsTeams: state.sportsTeams,
       }),
     },
   ),
