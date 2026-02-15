@@ -2,6 +2,7 @@
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
     "types": ["jest"],
+    "lib": ["ES2020", "DOM"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
