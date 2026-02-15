@@ -1,10 +1,10 @@
 import React from 'react';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import {createStackNavigator} from '@react-navigation/stack';
 import {NewsFeedScreen} from '@/screens/news/news-feed-screen';
 import {ArticleDetailScreen} from '@/screens/news/article-detail-screen';
 import type {NewsStackParamList} from './types';
 
-const Stack = createNativeStackNavigator<NewsStackParamList>();
+const Stack = createStackNavigator<NewsStackParamList>();
 
 export function NewsStack() {
   return (

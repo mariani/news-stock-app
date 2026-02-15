@@ -1,10 +1,10 @@
 import React from 'react';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import {createStackNavigator} from '@react-navigation/stack';
 import {WatchlistScreen} from '@/screens/stocks/watchlist-screen';
 import {StockDetailScreen} from '@/screens/stocks/stock-detail-screen';
 import type {StocksStackParamList} from './types';
 
-const Stack = createNativeStackNavigator<StocksStackParamList>();
+const Stack = createStackNavigator<StocksStackParamList>();
 
 export function StocksStack() {
   return (
