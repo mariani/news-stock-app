@@ -45,6 +45,10 @@ export function WatchlistScreen({navigation}: Props) {
     }
   }, [symbols.length, fetchQuotes]);
 
+  const handleRefresh = useCallback(() => {
+    fetchQuotes(true);
+  }, [fetchQuotes]);
+
   useRefreshInterval(fetchQuotes, refreshInterval * 1000);
 
   const handleAddSymbol = useCallback(
@@ -93,7 +97,7 @@ export function WatchlistScreen({navigation}: Props) {
         keyExtractor={item => item}
         renderItem={renderItem}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={fetchQuotes} />
+          <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
         ListEmptyComponent={
           <EmptyState

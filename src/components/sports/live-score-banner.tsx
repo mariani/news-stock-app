@@ -1,13 +1,15 @@
 import React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {useNewsStore} from '@/store/news-store';
+import {useSettingsStore} from '@/store/settings-store';
 import {useLiveScores} from '@/hooks/use-live-scores';
 import {ScoreRow} from './score-row';
 import {colors, spacing, fontSize} from '@/constants/theme';
 
 export function LiveScoreBanner() {
   const sportsTeams = useNewsStore(s => s.sportsTeams);
-  const {liveGames} = useLiveScores(sportsTeams);
+  const liveScoresEnabled = useSettingsStore(s => s.liveScoresEnabled);
+  const {liveGames} = useLiveScores(liveScoresEnabled ? sportsTeams : []);
 
   if (liveGames.length === 0) {
     return null;

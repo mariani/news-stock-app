@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import {useNewsStore} from '@/store/news-store';
 import {useStocksStore} from '@/store/stocks-store';
+import {useSettingsStore} from '@/store/settings-store';
 import {AVAILABLE_TOPICS} from '@/constants/topics';
 import {colors, spacing, fontSize} from '@/constants/theme';
 import type {NewsTopic} from '@/types/settings';
@@ -29,6 +30,8 @@ export function SettingsScreen() {
   const sportsTeams = useNewsStore(s => s.sportsTeams);
   const addSportsTeam = useNewsStore(s => s.addSportsTeam);
   const removeSportsTeam = useNewsStore(s => s.removeSportsTeam);
+  const liveScoresEnabled = useSettingsStore(s => s.liveScoresEnabled);
+  const setLiveScoresEnabled = useSettingsStore(s => s.setLiveScoresEnabled);
   const watchlists = useStocksStore(s => s.watchlists);
   const createWatchlist = useStocksStore(s => s.createWatchlist);
   const deleteWatchlist = useStocksStore(s => s.deleteWatchlist);
@@ -143,6 +146,14 @@ export function SettingsScreen() {
 
       <SectionHeader title="Sports Teams" />
       <View style={styles.section}>
+        <View style={styles.topicRow}>
+          <Text style={styles.topicLabel}>Live Scores</Text>
+          <Switch
+            value={liveScoresEnabled}
+            onValueChange={setLiveScoresEnabled}
+            trackColor={{false: colors.border, true: colors.primary}}
+          />
+        </View>
         {sportsTeams.map(team => (
           <View key={team} style={styles.listRow}>
             <Text style={styles.teamName}>{team}</Text>

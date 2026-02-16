@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {fetchGlobalQuote, fetchBulkQuotes} from '@/services/stock-service';
 import type {StockQuote, Watchlist} from '@/types/stock';
 
+const CACHE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
@@ -19,6 +21,7 @@ interface StocksState {
   watchlists: Watchlist[];
   activeWatchlistId: string;
   quotes: Record<string, StockQuote>;
+  lastFetchedAt: number | null;
   isLoading: boolean;
   error: string | null;
   createWatchlist: (name: string) => void;
@@ -27,7 +30,7 @@ interface StocksState {
   addSymbol: (watchlistId: string, symbol: string) => void;
   removeSymbol: (watchlistId: string, symbol: string) => void;
   setActiveWatchlist: (id: string) => void;
-  fetchQuotes: () => Promise<void>;
+  fetchQuotes: (force?: boolean) => Promise<void>;
   fetchStockDetail: (symbol: string) => Promise<StockQuote>;
 }
 
@@ -37,6 +40,7 @@ export const useStocksStore = create<StocksState>()(
       watchlists: [DEFAULT_WATCHLIST],
       activeWatchlistId: 'default',
       quotes: {},
+      lastFetchedAt: null,
       isLoading: false,
       error: null,
 
@@ -87,21 +91,30 @@ export const useStocksStore = create<StocksState>()(
 
       setActiveWatchlist: (id: string) => set({activeWatchlistId: id}),
 
-      fetchQuotes: async () => {
-        const {watchlists, activeWatchlistId} = get();
+      fetchQuotes: async (force = false) => {
+        const {watchlists, activeWatchlistId, lastFetchedAt, quotes} = get();
         const activeList = watchlists.find(w => w.id === activeWatchlistId);
         if (!activeList || activeList.symbols.length === 0) {
           return;
         }
 
+        const hasCache =
+          lastFetchedAt &&
+          activeList.symbols.every(s => quotes[s]) &&
+          Date.now() - lastFetchedAt < CACHE_MAX_AGE_MS;
+
+        if (!force && hasCache) {
+          return;
+        }
+
         set({isLoading: true, error: null});
         try {
-          const quotes = await fetchBulkQuotes(activeList.symbols);
+          const fetched = await fetchBulkQuotes(activeList.symbols);
           const quotesMap: Record<string, StockQuote> = {...get().quotes};
-          for (const quote of quotes) {
+          for (const quote of fetched) {
             quotesMap[quote.symbol] = quote;
           }
-          set({quotes: quotesMap, isLoading: false});
+          set({quotes: quotesMap, lastFetchedAt: Date.now(), isLoading: false});
         } catch (error) {
           set({
             error:
@@ -127,6 +140,8 @@ export const useStocksStore = create<StocksState>()(
       partialize: state => ({
         watchlists: state.watchlists,
         activeWatchlistId: state.activeWatchlistId,
+        quotes: state.quotes,
+        lastFetchedAt: state.lastFetchedAt,
       }),
     },
   ),

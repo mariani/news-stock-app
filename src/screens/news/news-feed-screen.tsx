@@ -24,6 +24,10 @@ export function NewsFeedScreen({navigation}: Props) {
     fetchArticles();
   }, [fetchArticles]);
 
+  const handleRefresh = useCallback(() => {
+    fetchArticles(true);
+  }, [fetchArticles]);
+
   const handleArticlePress = useCallback(
     (article: Article) => {
       navigation.navigate('ArticleDetail', {
@@ -49,13 +53,13 @@ export function NewsFeedScreen({navigation}: Props) {
     <View style={styles.container}>
       <TopicFilterBar />
       <LiveScoreBanner />
-      {error && <ErrorBanner message={error} onRetry={fetchArticles} />}
+      {error && <ErrorBanner message={error} onRetry={handleRefresh} />}
       <FlatList
         data={articles}
         keyExtractor={item => item.id}
         renderItem={renderItem}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={fetchArticles} />
+          <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
         ListEmptyComponent={
           <EmptyState

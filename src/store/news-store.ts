@@ -11,11 +11,14 @@ import {DEFAULT_TOPICS} from '@/constants/topics';
 import type {Article} from '@/types/article';
 import type {NewsTopic} from '@/types/settings';
 
+const CACHE_MAX_AGE_MS = 15 * 60 * 1000; // 15 minutes
+
 interface NewsState {
   selectedTopics: NewsTopic[];
   rssFeedUrls: string[];
   sportsTeams: string[];
   articles: Article[];
+  lastFetchedAt: number | null;
   isLoading: boolean;
   error: string | null;
   addTopic: (topic: NewsTopic) => void;
@@ -25,7 +28,7 @@ interface NewsState {
   removeRssFeed: (url: string) => void;
   addSportsTeam: (team: string) => void;
   removeSportsTeam: (team: string) => void;
-  fetchArticles: () => Promise<void>;
+  fetchArticles: (force?: boolean) => Promise<void>;
 }
 
 export const useNewsStore = create<NewsState>()(
@@ -35,6 +38,7 @@ export const useNewsStore = create<NewsState>()(
       rssFeedUrls: [],
       sportsTeams: [],
       articles: [],
+      lastFetchedAt: null,
       isLoading: false,
       error: null,
 
@@ -68,7 +72,7 @@ export const useNewsStore = create<NewsState>()(
         const {sportsTeams} = get();
         if (sportsTeams.includes(team)) return;
         set({sportsTeams: [...sportsTeams, team]});
-        get().fetchArticles();
+        get().fetchArticles(true);
       },
 
       removeSportsTeam: (team: string) =>
@@ -76,7 +80,18 @@ export const useNewsStore = create<NewsState>()(
           sportsTeams: state.sportsTeams.filter(t => t !== team),
         })),
 
-      fetchArticles: async () => {
+      fetchArticles: async (force = false) => {
+        const {lastFetchedAt, articles} = get();
+
+        if (
+          !force &&
+          lastFetchedAt &&
+          articles.length > 0 &&
+          Date.now() - lastFetchedAt < CACHE_MAX_AGE_MS
+        ) {
+          return;
+        }
+
         set({isLoading: true, error: null});
         try {
           const {selectedTopics, rssFeedUrls, sportsTeams} = get();
@@ -96,9 +111,9 @@ export const useNewsStore = create<NewsState>()(
             ...rssPromises,
             ...teamPromises,
           ]);
-          const articles = mergeAndSortArticles(...results);
+          const newArticles = mergeAndSortArticles(...results);
 
-          set({articles, isLoading: false});
+          set({articles: newArticles, lastFetchedAt: Date.now(), isLoading: false});
         } catch (error) {
           set({
             error:
@@ -117,6 +132,8 @@ export const useNewsStore = create<NewsState>()(
         selectedTopics: state.selectedTopics,
         rssFeedUrls: state.rssFeedUrls,
         sportsTeams: state.sportsTeams,
+        articles: state.articles,
+        lastFetchedAt: state.lastFetchedAt,
       }),
     },
   ),
