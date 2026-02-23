@@ -7,6 +7,7 @@ import {
   searchNews,
   mergeAndSortArticles,
 } from '@/services/news-service';
+import {useSettingsStore} from '@/store/settings-store';
 import {DEFAULT_TOPICS} from '@/constants/topics';
 import type {Article} from '@/types/article';
 import type {NewsTopic} from '@/types/settings';
@@ -19,6 +20,7 @@ interface NewsState {
   sportsTeams: string[];
   articles: Article[];
   lastFetchedAt: number | null;
+  _lastLanguage: string | null;
   isLoading: boolean;
   error: string | null;
   addTopic: (topic: NewsTopic) => void;
@@ -39,6 +41,7 @@ export const useNewsStore = create<NewsState>()(
       sportsTeams: [],
       articles: [],
       lastFetchedAt: null,
+      _lastLanguage: null,
       isLoading: false,
       error: null,
 
@@ -81,10 +84,15 @@ export const useNewsStore = create<NewsState>()(
         })),
 
       fetchArticles: async (force = false) => {
-        const {lastFetchedAt, articles} = get();
+        const {lastFetchedAt, articles, _lastLanguage} = get();
+        const {language} = useSettingsStore.getState();
+
+        // Force re-fetch if language changed since last fetch
+        const languageChanged = _lastLanguage !== language;
 
         if (
           !force &&
+          !languageChanged &&
           lastFetchedAt &&
           articles.length > 0 &&
           Date.now() - lastFetchedAt < CACHE_MAX_AGE_MS
@@ -97,13 +105,13 @@ export const useNewsStore = create<NewsState>()(
           const {selectedTopics, rssFeedUrls, sportsTeams} = get();
 
           const topicPromises = selectedTopics.map(topic =>
-            fetchTopHeadlines(topic).catch(() => [] as Article[]),
+            fetchTopHeadlines(topic, language).catch(() => [] as Article[]),
           );
           const rssPromises = rssFeedUrls.map(url =>
             fetchRssFeed(url).catch(() => [] as Article[]),
           );
           const teamPromises = sportsTeams.map(team =>
-            searchNews(team).catch(() => [] as Article[]),
+            searchNews(team, language).catch(() => [] as Article[]),
           );
 
           const results = await Promise.all([
@@ -113,7 +121,7 @@ export const useNewsStore = create<NewsState>()(
           ]);
           const newArticles = mergeAndSortArticles(...results);
 
-          set({articles: newArticles, lastFetchedAt: Date.now(), isLoading: false});
+          set({articles: newArticles, lastFetchedAt: Date.now(), _lastLanguage: language, isLoading: false});
         } catch (error) {
           set({
             error:
@@ -134,6 +142,7 @@ export const useNewsStore = create<NewsState>()(
         sportsTeams: state.sportsTeams,
         articles: state.articles,
         lastFetchedAt: state.lastFetchedAt,
+        _lastLanguage: state._lastLanguage,
       }),
     },
   ),

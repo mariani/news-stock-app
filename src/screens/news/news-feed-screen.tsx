@@ -2,11 +2,13 @@ import React, {useCallback, useEffect} from 'react';
 import {FlatList, RefreshControl, StyleSheet, View} from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useNewsStore} from '@/store/news-store';
+import {useSettingsStore} from '@/store/settings-store';
 import {ArticleCard} from '@/components/news/article-card';
 import {TopicFilterBar} from '@/components/news/topic-filter-bar';
 import {LoadingSpinner} from '@/components/common/loading-spinner';
 import {ErrorBanner} from '@/components/common/error-banner';
 import {LiveScoreBanner} from '@/components/sports/live-score-banner';
+import {WeatherBanner} from '@/components/weather/weather-banner';
 import {EmptyState} from '@/components/common/empty-state';
 import {colors} from '@/constants/theme';
 import type {NewsStackParamList} from '@/navigation/types';
@@ -19,10 +21,11 @@ export function NewsFeedScreen({navigation}: Props) {
   const isLoading = useNewsStore(s => s.isLoading);
   const error = useNewsStore(s => s.error);
   const fetchArticles = useNewsStore(s => s.fetchArticles);
+  const language = useSettingsStore(s => s.language);
 
   useEffect(() => {
     fetchArticles();
-  }, [fetchArticles]);
+  }, [fetchArticles, language]);
 
   const handleRefresh = useCallback(() => {
     fetchArticles(true);
@@ -52,6 +55,7 @@ export function NewsFeedScreen({navigation}: Props) {
   return (
     <View style={styles.container}>
       <TopicFilterBar />
+      <WeatherBanner />
       <LiveScoreBanner />
       {error && <ErrorBanner message={error} onRetry={handleRefresh} />}
       <FlatList

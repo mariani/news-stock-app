@@ -46,17 +46,24 @@ function mapNewsApiArticle(
 
 export async function fetchTopHeadlines(
   category: string,
+  language?: string,
 ): Promise<Article[]> {
+  // NewsAPI /top-headlines doesn't support country + language together.
+  // Use country for English (default), language param for other languages.
+  const params =
+    language && language !== 'en'
+      ? {category, language}
+      : {category, country: DEFAULT_COUNTRY};
   const response = await newsApiClient.get<NewsApiResponse>(
     '/top-headlines',
-    {params: {category, country: DEFAULT_COUNTRY}},
+    {params},
   );
   return response.data.articles.map(a => mapNewsApiArticle(a, category));
 }
 
-export async function searchNews(query: string): Promise<Article[]> {
+export async function searchNews(query: string, language?: string): Promise<Article[]> {
   const response = await newsApiClient.get<NewsApiResponse>('/everything', {
-    params: {q: query, sortBy: 'publishedAt', pageSize: 20},
+    params: {q: query, sortBy: 'publishedAt', pageSize: 20, ...(language && {language})},
   });
   return response.data.articles.map(a => mapNewsApiArticle(a));
 }

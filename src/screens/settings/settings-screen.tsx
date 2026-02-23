@@ -1,6 +1,8 @@
 import React, {useState} from 'react';
 import {
   Alert,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -32,6 +34,10 @@ export function SettingsScreen() {
   const removeSportsTeam = useNewsStore(s => s.removeSportsTeam);
   const liveScoresEnabled = useSettingsStore(s => s.liveScoresEnabled);
   const setLiveScoresEnabled = useSettingsStore(s => s.setLiveScoresEnabled);
+  const weatherEnabled = useSettingsStore(s => s.weatherEnabled);
+  const setWeatherEnabled = useSettingsStore(s => s.setWeatherEnabled);
+  const language = useSettingsStore(s => s.language);
+  const setLanguage = useSettingsStore(s => s.setLanguage);
   const watchlists = useStocksStore(s => s.watchlists);
   const createWatchlist = useStocksStore(s => s.createWatchlist);
   const deleteWatchlist = useStocksStore(s => s.deleteWatchlist);
@@ -39,6 +45,7 @@ export function SettingsScreen() {
   const [newFeedUrl, setNewFeedUrl] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
   const [newWatchlistName, setNewWatchlistName] = useState('');
+  const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
 
   const handleToggleTopic = (topic: NewsTopic) => {
     if (selectedTopics.includes(topic)) {
@@ -99,8 +106,79 @@ export function SettingsScreen() {
     ]);
   };
 
+  const LANGUAGES = [
+    {code: 'en', label: 'English'},
+    {code: 'es', label: 'Spanish'},
+    {code: 'fr', label: 'French'},
+    {code: 'de', label: 'German'},
+    {code: 'it', label: 'Italian'},
+    {code: 'pt', label: 'Portuguese'},
+    {code: 'nl', label: 'Dutch'},
+    {code: 'ru', label: 'Russian'},
+    {code: 'zh', label: 'Chinese'},
+    {code: 'ar', label: 'Arabic'},
+  ];
+
   return (
     <ScrollView style={styles.container}>
+      <SectionHeader title="Language" />
+      <View style={styles.section}>
+        <TouchableOpacity
+          style={styles.topicRow}
+          onPress={() => setLanguagePickerOpen(true)}>
+          <Text style={styles.topicLabel}>News Language</Text>
+          <Text style={styles.dropdownValue}>
+            {LANGUAGES.find(l => l.code === language)?.label ?? 'English'} ▾
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <Modal
+        visible={languagePickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLanguagePickerOpen(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setLanguagePickerOpen(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Language</Text>
+            {LANGUAGES.map(lang => (
+              <TouchableOpacity
+                key={lang.code}
+                style={styles.modalOption}
+                onPress={() => {
+                  setLanguage(lang.code);
+                  setLanguagePickerOpen(false);
+                }}>
+                <Text
+                  style={[
+                    styles.modalOptionText,
+                    language === lang.code && styles.modalOptionTextActive,
+                  ]}>
+                  {lang.label}
+                </Text>
+                {language === lang.code && (
+                  <Text style={styles.modalCheck}>✓</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+
+      <SectionHeader title="Weather" />
+      <View style={styles.section}>
+        <View style={styles.topicRow}>
+          <Text style={styles.topicLabel}>Show Weather</Text>
+          <Switch
+            value={weatherEnabled}
+            onValueChange={setWeatherEnabled}
+            trackColor={{false: colors.border, true: colors.primary}}
+          />
+        </View>
+      </View>
+
       <SectionHeader title="News Topics" />
       <View style={styles.section}>
         {AVAILABLE_TOPICS.map(topic => (
@@ -245,6 +323,54 @@ const styles = StyleSheet.create({
   topicLabel: {
     fontSize: fontSize.lg,
     color: colors.text,
+  },
+  dropdownValue: {
+    fontSize: fontSize.md,
+    color: colors.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    width: '80%',
+    maxWidth: 320,
+    paddingVertical: spacing.md,
+  },
+  modalTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  modalOptionText: {
+    fontSize: fontSize.md,
+    color: colors.text,
+  },
+  modalOptionTextActive: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  modalCheck: {
+    fontSize: fontSize.lg,
+    color: colors.primary,
+    fontWeight: '600',
   },
   listRow: {
     flexDirection: 'row',
