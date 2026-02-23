@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect} from 'react';
-import {FlatList, RefreshControl, StyleSheet, View} from 'react-native';
+import {FlatList, Linking, RefreshControl, StyleSheet, View} from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useNewsStore} from '@/store/news-store';
 import {useSettingsStore} from '@/store/settings-store';
@@ -31,15 +31,9 @@ export function NewsFeedScreen({navigation}: Props) {
     fetchArticles(true);
   }, [fetchArticles]);
 
-  const handleArticlePress = useCallback(
-    (article: Article) => {
-      navigation.navigate('ArticleDetail', {
-        articleUrl: article.url,
-        title: article.source.name,
-      });
-    },
-    [navigation],
-  );
+  const handleArticlePress = useCallback((article: Article) => {
+    Linking.openURL(article.url);
+  }, []);
 
   const renderItem = useCallback(
     ({item}: {item: Article}) => (
