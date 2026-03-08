@@ -10,11 +10,10 @@ interface Props {
   exchange?: string;
   quote?: StockQuote;
   recommendation?: Recommendation;
-  recommendationLoading?: boolean;
   onPress: () => void;
 }
 
-export function StockRow({symbol, exchange, quote, recommendation, recommendationLoading, onPress}: Props) {
+export function StockRow({symbol, exchange, quote, recommendation, onPress}: Props) {
   const handleTickerPress = useCallback(() => {
     const suffix = exchange ? `:${exchange}` : '';
     Linking.openURL(`https://www.google.com/finance/quote/${symbol}${suffix}`);
@@ -27,11 +26,7 @@ export function StockRow({symbol, exchange, quote, recommendation, recommendatio
           <TouchableOpacity onPress={handleTickerPress}>
             <Text style={styles.symbol}>{symbol}</Text>
           </TouchableOpacity>
-          {recommendationLoading && !recommendation ? (
-            <View style={[styles.badge, styles.badgeHold]}>
-              <Text style={styles.badgeTextHold}>···</Text>
-            </View>
-          ) : recommendation ? (
+          {recommendation ? (
             <View style={[styles.badge, recommendation === 'BUY' ? styles.badgeBuy : styles.badgeHold]}>
               <Text style={[styles.badgeText, recommendation === 'BUY' ? styles.badgeTextBuy : styles.badgeTextHold]}>
                 {recommendation}

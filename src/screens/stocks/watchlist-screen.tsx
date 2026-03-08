@@ -30,7 +30,6 @@ export function WatchlistScreen({navigation}: Props) {
   const activeWatchlistId = useStocksStore(s => s.activeWatchlistId);
   const quotes = useStocksStore(s => s.quotes);
   const recommendations = useStocksStore(s => s.recommendations);
-  const isLoadingRecommendations = useStocksStore(s => s.isLoadingRecommendations);
   const isLoading = useStocksStore(s => s.isLoading);
   const error = useStocksStore(s => s.error);
   const fetchQuotes = useStocksStore(s => s.fetchQuotes);
@@ -96,11 +95,10 @@ export function WatchlistScreen({navigation}: Props) {
         exchange={symbolExchanges[item]}
         quote={quotes[item]}
         recommendation={mmRecommendationEnabled ? recommendations[item] : undefined}
-        recommendationLoading={mmRecommendationEnabled && isLoadingRecommendations}
         onPress={() => navigation.navigate('StockDetail', {symbol: item})}
       />
     ),
-    [quotes, recommendations, symbolExchanges, mmRecommendationEnabled, isLoadingRecommendations, navigation],
+    [quotes, recommendations, symbolExchanges, mmRecommendationEnabled, navigation],
   );
 
   return (

@@ -51,7 +51,14 @@ async function fetchLeagueScoreboard(
   leagueName: string,
 ): Promise<LiveGame[]> {
   const directUrl = `${ESPN_BASE}/${sportLeague}/scoreboard`;
-  const url = inWebBrowser() ? `${CORS_PROXY}${directUrl}` : directUrl;
+  let url: string;
+  if (inWebBrowser()) {
+    // Add timestamp so codetabs doesn't serve a cached scoreboard
+    const ts = Date.now();
+    url = `${CORS_PROXY}${directUrl}%3F_t%3D${ts}`;
+  } else {
+    url = directUrl;
+  }
   const response = await fetch(url, {cache: 'no-store'});
   if (!response.ok) {
     return [];
