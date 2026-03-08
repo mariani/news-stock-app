@@ -3,8 +3,14 @@ import type {
   EspnCompetition,
   LiveGame,
 } from '@/types/live-score';
+import {CORS_PROXY} from './api-client';
 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports';
+
+// ESPN blocks cross-origin browser requests; detect browser context (not RN native)
+function inWebBrowser(): boolean {
+  return typeof window !== 'undefined' && window.location != null;
+}
 
 const LEAGUES: [string, string][] = [
   ['basketball/nba', 'NBA'],
@@ -44,7 +50,9 @@ async function fetchLeagueScoreboard(
   sportLeague: string,
   leagueName: string,
 ): Promise<LiveGame[]> {
-  const response = await fetch(`${ESPN_BASE}/${sportLeague}/scoreboard`);
+  const directUrl = `${ESPN_BASE}/${sportLeague}/scoreboard`;
+  const url = inWebBrowser() ? `${CORS_PROXY}${directUrl}` : directUrl;
+  const response = await fetch(url, {cache: 'no-store'});
   if (!response.ok) {
     return [];
   }

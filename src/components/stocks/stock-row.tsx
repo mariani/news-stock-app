@@ -1,21 +1,44 @@
-import React from 'react';
-import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import React, {useCallback} from 'react';
+import {Linking, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import {PriceChange} from './price-change';
 import {formatCurrency} from '@/utils/format-currency';
 import {colors, spacing, fontSize} from '@/constants/theme';
-import type {StockQuote} from '@/types/stock';
+import type {Recommendation, StockQuote} from '@/types/stock';
 
 interface Props {
   symbol: string;
+  exchange?: string;
   quote?: StockQuote;
+  recommendation?: Recommendation;
+  recommendationLoading?: boolean;
   onPress: () => void;
 }
 
-export function StockRow({symbol, quote, onPress}: Props) {
+export function StockRow({symbol, exchange, quote, recommendation, recommendationLoading, onPress}: Props) {
+  const handleTickerPress = useCallback(() => {
+    const suffix = exchange ? `:${exchange}` : '';
+    Linking.openURL(`https://www.google.com/finance/quote/${symbol}${suffix}`);
+  }, [symbol, exchange]);
+
   return (
     <TouchableOpacity onPress={onPress} style={styles.row}>
       <View style={styles.left}>
-        <Text style={styles.symbol}>{symbol}</Text>
+        <View style={styles.symbolRow}>
+          <TouchableOpacity onPress={handleTickerPress}>
+            <Text style={styles.symbol}>{symbol}</Text>
+          </TouchableOpacity>
+          {recommendationLoading && !recommendation ? (
+            <View style={[styles.badge, styles.badgeHold]}>
+              <Text style={styles.badgeTextHold}>···</Text>
+            </View>
+          ) : recommendation ? (
+            <View style={[styles.badge, recommendation === 'BUY' ? styles.badgeBuy : styles.badgeHold]}>
+              <Text style={[styles.badgeText, recommendation === 'BUY' ? styles.badgeTextBuy : styles.badgeTextHold]}>
+                {recommendation}
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </View>
       <View style={styles.right}>
         {quote ? (
@@ -48,13 +71,41 @@ const styles = StyleSheet.create({
   left: {
     flex: 1,
   },
+  symbolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  badge: {
+    borderRadius: 4,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+  },
+  badgeBuy: {
+    backgroundColor: '#D4F5DC',
+  },
+  badgeHold: {
+    backgroundColor: colors.background,
+  },
+  badgeText: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  badgeTextBuy: {
+    color: colors.positive,
+  },
+  badgeTextHold: {
+    color: colors.textSecondary,
+  },
   right: {
     alignItems: 'flex-end',
   },
   symbol: {
     fontSize: fontSize.lg,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
   price: {
     fontSize: fontSize.lg,

@@ -25,7 +25,7 @@ function isLocalhost(): boolean {
   );
 }
 
-const CORS_PROXY = 'https://api.codetabs.com/v1/proxy/?quest=';
+export const CORS_PROXY = 'https://api.codetabs.com/v1/proxy/?quest=';
 
 function buildProxiedUrl(baseUrl: string, path: string, params: Record<string, string>): string {
   // codetabs expects the base URL unencoded, but ? and & encoded as %3F and %26
@@ -69,7 +69,7 @@ alphaVantageClient.interceptors.request.use(config => {
     const fullUrl = buildProxiedUrl(
       config.baseURL,
       config.url ?? '',
-      config.params,
+      {...config.params, _t: Date.now().toString()},
     );
     config.baseURL = '';
     config.url = fullUrl;

@@ -38,6 +38,8 @@ export function SettingsScreen() {
   const setWeatherEnabled = useSettingsStore(s => s.setWeatherEnabled);
   const language = useSettingsStore(s => s.language);
   const setLanguage = useSettingsStore(s => s.setLanguage);
+  const mmRecommendationEnabled = useSettingsStore(s => s.mmRecommendationEnabled);
+  const setMmRecommendationEnabled = useSettingsStore(s => s.setMmRecommendationEnabled);
   const watchlists = useStocksStore(s => s.watchlists);
   const createWatchlist = useStocksStore(s => s.createWatchlist);
   const deleteWatchlist = useStocksStore(s => s.deleteWatchlist);
@@ -252,6 +254,18 @@ export function SettingsScreen() {
           <TouchableOpacity style={styles.addButton} onPress={handleAddTeam}>
             <Text style={styles.addButtonText}>Add</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+
+      <SectionHeader title="Stocks" />
+      <View style={styles.section}>
+        <View style={styles.topicRow}>
+          <Text style={styles.topicLabel}>MM Recommendation</Text>
+          <Switch
+            value={mmRecommendationEnabled}
+            onValueChange={setMmRecommendationEnabled}
+            trackColor={{false: colors.border, true: colors.primary}}
+          />
         </View>
       </View>
 

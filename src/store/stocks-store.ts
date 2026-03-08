@@ -1,8 +1,14 @@
 import {create} from 'zustand';
 import {persist, createJSONStorage} from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {fetchGlobalQuote, fetchBulkQuotes} from '@/services/stock-service';
-import type {StockQuote, Watchlist} from '@/types/stock';
+import {
+  fetchGlobalQuote,
+  fetchBulkQuotes,
+  fetchDailyCloses,
+  computeRecommendation,
+  fetchSymbolExchange,
+} from '@/services/stock-service';
+import type {StockQuote, Watchlist, Recommendation} from '@/types/stock';
 
 const CACHE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -22,7 +28,10 @@ interface StocksState {
   activeWatchlistId: string;
   quotes: Record<string, StockQuote>;
   lastFetchedAt: number | null;
+  recommendations: Record<string, Recommendation>;
+  symbolExchanges: Record<string, string>;
   isLoading: boolean;
+  isLoadingRecommendations: boolean;
   error: string | null;
   createWatchlist: (name: string) => void;
   deleteWatchlist: (id: string) => void;
@@ -31,6 +40,8 @@ interface StocksState {
   removeSymbol: (watchlistId: string, symbol: string) => void;
   setActiveWatchlist: (id: string) => void;
   fetchQuotes: (force?: boolean) => Promise<void>;
+  fetchRecommendations: () => Promise<void>;
+  fetchMissingExchanges: () => Promise<void>;
   fetchStockDetail: (symbol: string) => Promise<StockQuote>;
 }
 
@@ -41,7 +52,10 @@ export const useStocksStore = create<StocksState>()(
       activeWatchlistId: 'default',
       quotes: {},
       lastFetchedAt: null,
+      recommendations: {},
+      symbolExchanges: {},
       isLoading: false,
+      isLoadingRecommendations: false,
       error: null,
 
       createWatchlist: (name: string) => {
@@ -71,14 +85,27 @@ export const useStocksStore = create<StocksState>()(
           ),
         })),
 
-      addSymbol: (watchlistId: string, symbol: string) =>
+      addSymbol: (watchlistId: string, symbol: string) => {
         set(state => ({
           watchlists: state.watchlists.map(w =>
             w.id === watchlistId && !w.symbols.includes(symbol)
               ? {...w, symbols: [...w.symbols, symbol]}
               : w,
           ),
-        })),
+        }));
+        // Fetch and persist exchange for Google Finance link (fire-and-forget)
+        if (!get().symbolExchanges[symbol]) {
+          fetchSymbolExchange(symbol)
+            .then(exchange => {
+              if (exchange) {
+                set(state => ({
+                  symbolExchanges: {...state.symbolExchanges, [symbol]: exchange},
+                }));
+              }
+            })
+            .catch(() => {});
+        }
+      },
 
       removeSymbol: (watchlistId: string, symbol: string) =>
         set(state => ({
@@ -126,6 +153,60 @@ export const useStocksStore = create<StocksState>()(
         }
       },
 
+      fetchRecommendations: async () => {
+        const {watchlists, activeWatchlistId} = get();
+        const activeList = watchlists.find(w => w.id === activeWatchlistId);
+        if (!activeList || activeList.symbols.length === 0) {
+          return;
+        }
+        set({isLoadingRecommendations: true});
+        try {
+          const [diaCloses, qqqCloses] = await Promise.all([
+            fetchDailyCloses('DIA', 3),
+            fetchDailyCloses('QQQ', 3),
+          ]);
+          for (const symbol of activeList.symbols) {
+            try {
+              const stockCloses = await fetchDailyCloses(symbol, 4);
+              const rec = computeRecommendation(stockCloses, diaCloses, qqqCloses);
+              // Update store per symbol so badges appear progressively
+              set(state => ({
+                recommendations: {...state.recommendations, [symbol]: rec},
+              }));
+            } catch {
+              // Skip failed symbols silently
+            }
+          }
+        } catch {
+          // Index fetch failed — leave existing recommendations in place
+        } finally {
+          set({isLoadingRecommendations: false});
+        }
+      },
+
+      fetchMissingExchanges: async () => {
+        const {watchlists, activeWatchlistId, symbolExchanges} = get();
+        const activeList = watchlists.find(w => w.id === activeWatchlistId);
+        if (!activeList) {
+          return;
+        }
+        const missing = activeList.symbols.filter(s => !symbolExchanges[s]);
+        console.log('[fetchMissingExchanges] missing:', missing);
+        for (const symbol of missing) {
+          try {
+            const exchange = await fetchSymbolExchange(symbol);
+            console.log(`[fetchMissingExchanges] ${symbol} → "${exchange}"`);
+            if (exchange) {
+              set(state => ({
+                symbolExchanges: {...state.symbolExchanges, [symbol]: exchange},
+              }));
+            }
+          } catch (e) {
+            console.warn(`[fetchMissingExchanges] error for ${symbol}:`, e);
+          }
+        }
+      },
+
       fetchStockDetail: async (symbol: string) => {
         const quote = await fetchGlobalQuote(symbol);
         set(state => ({
@@ -141,7 +222,8 @@ export const useStocksStore = create<StocksState>()(
         watchlists: state.watchlists,
         activeWatchlistId: state.activeWatchlistId,
         quotes: state.quotes,
-        lastFetchedAt: state.lastFetchedAt,
+        recommendations: state.recommendations,
+        symbolExchanges: state.symbolExchanges,
       }),
     },
   ),

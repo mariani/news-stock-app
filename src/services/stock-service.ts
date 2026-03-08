@@ -1,6 +1,6 @@
-import {alphaVantageClient} from './api-client';
+import {alphaVantageClient, CORS_PROXY} from './api-client';
 import {alphaVantageLimiter} from '@/utils/rate-limiter';
-import type {StockQuote, SymbolSearchResult} from '@/types/stock';
+import type {StockQuote, SymbolSearchResult, Recommendation} from '@/types/stock';
 
 interface AlphaVantageGlobalQuote {
   'Global Quote': {
@@ -52,8 +52,70 @@ export async function fetchGlobalQuote(
       '/query',
       {params: {function: 'GLOBAL_QUOTE', symbol}},
     );
-    return parseGlobalQuote(response.data['Global Quote']);
+    const quote = response.data['Global Quote'];
+    if (!quote || !quote['05. price']) {
+      throw new Error(`No quote data for ${symbol}`);
+    }
+    return parseGlobalQuote(quote);
   });
+}
+
+interface YahooChartResponse {
+  chart: {
+    result: Array<{meta: {exchangeName: string}}> | null;
+    error: {code: string; description: string} | null;
+  };
+}
+
+// Yahoo Finance exchangeName → Google Finance URL suffix
+const EXCHANGE_MAP: Record<string, string> = {
+  NASDAQ: 'NASDAQ',
+  NYSE: 'NYSE',
+  NYSEArca: 'NYSEARCA',
+  'NYSE Arca': 'NYSEARCA',
+  NMS: 'NASDAQ',   // Nasdaq Global Select Market
+  NGM: 'NASDAQ',   // Nasdaq Global Market
+  NCM: 'NASDAQ',   // Nasdaq Capital Market
+  NYQ: 'NYSE',
+  PCX: 'NYSEARCA',
+};
+
+function buildYahooChartUrl(symbol: string): string {
+  const directUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
+  // Use CORS proxy in all browser contexts (Yahoo Finance blocks cross-origin requests)
+  const useProxy = typeof window !== 'undefined' && window.location != null;
+  if (!useProxy) {
+    // React Native native — no CORS restrictions, direct fetch
+    return directUrl;
+  }
+  // allorigins.win fetches with browser-like headers, avoiding Yahoo Finance's bot detection
+  // /raw endpoint returns the response body directly (no wrapper JSON)
+  return `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
+}
+
+// Called once per symbol; result is persisted so this only runs when exchange is unknown.
+export async function fetchSymbolExchange(symbol: string): Promise<string> {
+  console.log(`[fetchSymbolExchange] starting for ${symbol}`);
+  try {
+    const url = buildYahooChartUrl(symbol);
+    console.log(`[fetchSymbolExchange] url: ${url}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const response = await fetch(url, {cache: 'no-store', signal: controller.signal});
+    clearTimeout(timeoutId);
+    console.log(`[fetchSymbolExchange] status ${response.status} for ${symbol}`);
+    if (!response.ok) {
+      return '';
+    }
+    const data: YahooChartResponse = await response.json();
+    const exchangeName = data.chart?.result?.[0]?.meta?.exchangeName ?? '';
+    const exchange = EXCHANGE_MAP[exchangeName] ?? '';
+    console.log(`[fetchSymbolExchange] ${symbol} exchangeName="${exchangeName}" → "${exchange}"`);
+    return exchange;
+  } catch (e) {
+    console.error(`[fetchSymbolExchange] error for ${symbol}:`, e);
+    return '';
+  }
 }
 
 export async function searchSymbol(
@@ -72,6 +134,50 @@ export async function searchSymbol(
     region: match['4. region'],
     currency: match['8. currency'],
   }));
+}
+
+interface AlphaVantageDailyResponse {
+  'Time Series (Daily)': Record<string, {'4. close': string}>;
+}
+
+export async function fetchDailyCloses(
+  symbol: string,
+  days: number,
+): Promise<number[]> {
+  return alphaVantageLimiter.schedule(async () => {
+    const response = await alphaVantageClient.get<AlphaVantageDailyResponse>(
+      '/query',
+      {params: {function: 'TIME_SERIES_DAILY', symbol, outputsize: 'compact'}},
+    );
+    const series = response.data['Time Series (Daily)'];
+    if (!series) {
+      return [];
+    }
+    return Object.keys(series)
+      .sort((a, b) => b.localeCompare(a))
+      .slice(0, days)
+      .map(date => parseFloat(series[date]['4. close']));
+  });
+}
+
+export function computeRecommendation(
+  stockCloses: number[],
+  diaCloses: number[],
+  qqqCloses: number[],
+): Recommendation {
+  // Need 4 stock closes (today + 3 prior) and 3 index closes (today + 2 prior)
+  if (stockCloses.length < 4 || diaCloses.length < 3 || qqqCloses.length < 3) {
+    return 'HOLD';
+  }
+  // Stock down >= 10% over past 3 business days
+  const stockChange = (stockCloses[0] - stockCloses[3]) / stockCloses[3];
+  const stockDown10pct = stockChange <= -0.1;
+
+  // Either Dow (DIA) or NASDAQ (QQQ) index down over past 2 business days
+  const diaDown = diaCloses[0] < diaCloses[2];
+  const qqqDown = qqqCloses[0] < qqqCloses[2];
+
+  return stockDown10pct && (diaDown || qqqDown) ? 'BUY' : 'HOLD';
 }
 
 export async function fetchBulkQuotes(

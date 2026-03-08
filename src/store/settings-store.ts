@@ -7,10 +7,12 @@ interface SettingsState {
   liveScoresEnabled: boolean;
   weatherEnabled: boolean;
   language: string;
+  mmRecommendationEnabled: boolean;
   setRefreshInterval: (seconds: number) => void;
   setLiveScoresEnabled: (enabled: boolean) => void;
   setWeatherEnabled: (enabled: boolean) => void;
   setLanguage: (language: string) => void;
+  setMmRecommendationEnabled: (enabled: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -20,6 +22,7 @@ export const useSettingsStore = create<SettingsState>()(
       liveScoresEnabled: true,
       weatherEnabled: true,
       language: 'en',
+      mmRecommendationEnabled: false,
       setRefreshInterval: (seconds: number) =>
         set({refreshIntervalSeconds: seconds}),
       setLiveScoresEnabled: (enabled: boolean) =>
@@ -27,6 +30,8 @@ export const useSettingsStore = create<SettingsState>()(
       setWeatherEnabled: (enabled: boolean) =>
         set({weatherEnabled: enabled}),
       setLanguage: (language: string) => set({language}),
+      setMmRecommendationEnabled: (enabled: boolean) =>
+        set({mmRecommendationEnabled: enabled}),
     }),
     {
       name: 'settings-storage',

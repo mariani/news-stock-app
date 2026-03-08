@@ -17,6 +17,8 @@ export interface Watchlist {
   createdAt: string;
 }
 
+export type Recommendation = 'BUY' | 'HOLD';
+
 export interface SymbolSearchResult {
   symbol: string;
   name: string;

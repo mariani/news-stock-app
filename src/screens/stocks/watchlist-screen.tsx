@@ -29,12 +29,18 @@ export function WatchlistScreen({navigation}: Props) {
   const watchlists = useStocksStore(s => s.watchlists);
   const activeWatchlistId = useStocksStore(s => s.activeWatchlistId);
   const quotes = useStocksStore(s => s.quotes);
+  const recommendations = useStocksStore(s => s.recommendations);
+  const isLoadingRecommendations = useStocksStore(s => s.isLoadingRecommendations);
   const isLoading = useStocksStore(s => s.isLoading);
   const error = useStocksStore(s => s.error);
   const fetchQuotes = useStocksStore(s => s.fetchQuotes);
+  const fetchRecommendations = useStocksStore(s => s.fetchRecommendations);
+  const symbolExchanges = useStocksStore(s => s.symbolExchanges);
+  const fetchMissingExchanges = useStocksStore(s => s.fetchMissingExchanges);
   const addSymbol = useStocksStore(s => s.addSymbol);
   const removeSymbol = useStocksStore(s => s.removeSymbol);
   const refreshInterval = useSettingsStore(s => s.refreshIntervalSeconds);
+  const mmRecommendationEnabled = useSettingsStore(s => s.mmRecommendationEnabled);
 
   const activeList = watchlists.find(w => w.id === activeWatchlistId);
   const symbols = activeList?.symbols ?? [];
@@ -42,12 +48,22 @@ export function WatchlistScreen({navigation}: Props) {
   useEffect(() => {
     if (symbols.length > 0) {
       fetchQuotes();
+      fetchMissingExchanges();
     }
-  }, [symbols.length, fetchQuotes]);
+  }, [symbols.length, fetchQuotes, fetchMissingExchanges]);
+
+  useEffect(() => {
+    if (mmRecommendationEnabled && symbols.length > 0) {
+      fetchRecommendations();
+    }
+  }, [mmRecommendationEnabled, symbols.length, fetchRecommendations]);
 
   const handleRefresh = useCallback(() => {
     fetchQuotes(true);
-  }, [fetchQuotes]);
+    if (mmRecommendationEnabled) {
+      fetchRecommendations();
+    }
+  }, [fetchQuotes, fetchRecommendations, mmRecommendationEnabled]);
 
   useRefreshInterval(fetchQuotes, refreshInterval * 1000);
 
@@ -77,17 +93,26 @@ export function WatchlistScreen({navigation}: Props) {
     ({item}: {item: string}) => (
       <StockRow
         symbol={item}
+        exchange={symbolExchanges[item]}
         quote={quotes[item]}
+        recommendation={mmRecommendationEnabled ? recommendations[item] : undefined}
+        recommendationLoading={mmRecommendationEnabled && isLoadingRecommendations}
         onPress={() => navigation.navigate('StockDetail', {symbol: item})}
       />
     ),
-    [quotes, navigation],
+    [quotes, recommendations, symbolExchanges, mmRecommendationEnabled, isLoadingRecommendations, navigation],
   );
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <WatchlistPicker />
+        <TouchableOpacity
+          onPress={handleRefresh}
+          style={styles.refreshButton}
+          disabled={isLoading}>
+          <Text style={[styles.refreshIcon, isLoading && styles.refreshIconDisabled]}>↻</Text>
+        </TouchableOpacity>
       </View>
 
       {error && <ErrorBanner message={error} onRetry={fetchQuotes} />}
@@ -96,6 +121,7 @@ export function WatchlistScreen({navigation}: Props) {
         data={symbols}
         keyExtractor={item => item}
         renderItem={renderItem}
+        extraData={[quotes, recommendations, symbolExchanges]}
         refreshControl={
           <RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />
         }
@@ -134,11 +160,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     backgroundColor: colors.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
+  },
+  refreshButton: {
+    padding: spacing.xs,
+  },
+  refreshIcon: {
+    fontSize: fontSize.xxl,
+    color: colors.primary,
+  },
+  refreshIconDisabled: {
+    color: colors.textSecondary,
   },
   emptyList: {
     flex: 1,
