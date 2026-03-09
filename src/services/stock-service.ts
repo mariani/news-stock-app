@@ -1,5 +1,6 @@
 import type {StockQuote, SymbolSearchResult, Recommendation} from '@/types/stock';
 import {STOCK_SYMBOLS} from '@/data/stock-symbols';
+import {CORS_PROXY} from './api-client';
 
 interface YahooChartMeta {
   exchangeName: string;
@@ -42,15 +43,14 @@ const EXCHANGE_MAP: Record<string, string> = {
 };
 
 function buildYahooChartUrl(symbol: string, range: string = '1d'): string {
-  const directUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}`;
-  // Use CORS proxy in all browser contexts (Yahoo Finance blocks cross-origin requests)
+  const base = 'https://query2.finance.yahoo.com';
+  const path = `/v8/finance/chart/${encodeURIComponent(symbol)}`;
   const useProxy = typeof window !== 'undefined' && window.location != null;
   if (!useProxy) {
-    // React Native native — no CORS restrictions, direct fetch
-    return directUrl;
+    return `${base}${path}?interval=1d&range=${range}`;
   }
-  // allorigins.win fetches with browser-like headers, avoiding Yahoo Finance's bot detection
-  return `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
+  // codetabs CORS proxy — same as ESPN; encode ? and & so codetabs forwards the full URL
+  return `${CORS_PROXY}${base}${path}%3Finterval%3D1d%26range%3D${range}`;
 }
 
 // Shared fetch helper — clearTimeout in finally so it always runs
