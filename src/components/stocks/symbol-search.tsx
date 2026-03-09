@@ -19,7 +19,6 @@ interface Props {
 export function SymbolSearch({onSelect}: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SymbolSearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
   const debouncedQuery = useDebounce(query, 500);
 
   React.useEffect(() => {
@@ -28,29 +27,7 @@ export function SymbolSearch({onSelect}: Props) {
       return;
     }
 
-    let cancelled = false;
-    setSearching(true);
-
-    searchSymbol(debouncedQuery)
-      .then(r => {
-        if (!cancelled) {
-          setResults(r);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setResults([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setSearching(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    searchSymbol(debouncedQuery).then(setResults).catch(() => setResults([]));
   }, [debouncedQuery]);
 
   const renderResult = useCallback(
@@ -78,12 +55,26 @@ export function SymbolSearch({onSelect}: Props) {
         autoCapitalize="characters"
         autoCorrect={false}
       />
-      {searching && <Text style={styles.hint}>Searching...</Text>}
       <FlatList
         data={results}
         keyExtractor={item => item.symbol}
         renderItem={renderResult}
         keyboardShouldPersistTaps="handled"
+        ListFooterComponent={
+          debouncedQuery.length > 0 &&
+          !results.some(
+            r => r.symbol.toLowerCase() === debouncedQuery.toLowerCase(),
+          ) ? (
+            <TouchableOpacity
+              style={[styles.resultRow, styles.directRow]}
+              onPress={() => onSelect(debouncedQuery.toUpperCase())}>
+              <Text style={styles.resultSymbol}>
+                {debouncedQuery.toUpperCase()}
+              </Text>
+              <Text style={styles.resultName}>Add directly</Text>
+            </TouchableOpacity>
+          ) : null
+        }
       />
     </View>
   );
@@ -128,5 +119,8 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.textSecondary,
     flex: 1,
+  },
+  directRow: {
+    opacity: 0.7,
   },
 });

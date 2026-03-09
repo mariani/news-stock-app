@@ -1,6 +1,7 @@
 import {alphaVantageClient, CORS_PROXY} from './api-client';
 import {alphaVantageLimiter} from '@/utils/rate-limiter';
 import type {StockQuote, SymbolSearchResult, Recommendation} from '@/types/stock';
+import {STOCK_SYMBOLS} from '@/data/stock-symbols';
 
 interface AlphaVantageGlobalQuote {
   'Global Quote': {
@@ -109,28 +110,18 @@ export async function fetchSymbolExchange(symbol: string): Promise<string> {
   }
 }
 
-interface AlphaVantageSearchResult {
-  bestMatches: {
-    '1. symbol': string;
-    '2. name': string;
-    '3. type': string;
-  }[];
-}
-
-export async function searchSymbol(
-  keywords: string,
-): Promise<SymbolSearchResult[]> {
-  // Goes through the CORS proxy (codetabs) on web — same path as quotes/recommendations.
-  // Does NOT use the rate limiter so results appear immediately.
-  const response = await alphaVantageClient.get<AlphaVantageSearchResult>(
-    '/query',
-    {params: {function: 'SYMBOL_SEARCH', keywords}},
-  );
-  return (response.data.bestMatches ?? []).map(match => ({
-    symbol: match['1. symbol'],
-    name: match['2. name'],
-    type: match['3. type'],
-  }));
+export function searchSymbol(keywords: string): Promise<SymbolSearchResult[]> {
+  // Local search — no API call, no quota concerns.
+  const q = keywords.trim().toLowerCase();
+  if (!q) {
+    return Promise.resolve([]);
+  }
+  const results = STOCK_SYMBOLS.filter(
+    s =>
+      s.symbol.toLowerCase().includes(q) ||
+      s.name.toLowerCase().includes(q),
+  ).slice(0, 10);
+  return Promise.resolve(results);
 }
 
 interface AlphaVantageDailyResponse {
