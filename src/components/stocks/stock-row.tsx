@@ -36,7 +36,10 @@ export function StockRow({symbol, exchange, quote, recommendation, onPress, onRe
           ) : null}
           {onRemove ? (
             <TouchableOpacity
-              onPress={onRemove}
+              onPress={e => {
+                e.stopPropagation?.();
+                onRemove();
+              }}
               hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
               style={styles.removeButton}>
               <Text style={styles.removeText}>✕</Text>

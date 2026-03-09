@@ -75,14 +75,20 @@ export function WatchlistScreen({navigation}: Props) {
 
   const handleRemoveSymbol = useCallback(
     (symbol: string) => {
-      Alert.alert('Remove Stock', `Remove ${symbol} from watchlist?`, [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => removeSymbol(activeWatchlistId, symbol),
-        },
-      ]);
+      if (typeof window !== 'undefined') {
+        if (window.confirm(`Remove ${symbol} from watchlist?`)) {
+          removeSymbol(activeWatchlistId, symbol);
+        }
+      } else {
+        Alert.alert('Remove Stock', `Remove ${symbol} from watchlist?`, [
+          {text: 'Cancel', style: 'cancel'},
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: () => removeSymbol(activeWatchlistId, symbol),
+          },
+        ]);
+      }
     },
     [activeWatchlistId, removeSymbol],
   );
