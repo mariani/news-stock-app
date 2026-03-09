@@ -9,6 +9,9 @@ interface Props {
 }
 
 export function PriceChange({change, changePercent}: Props) {
+  if (change == null || changePercent == null) {
+    return null;
+  }
   const isPositive = change >= 0;
   const color = isPositive ? colors.positive : colors.negative;
   const arrow = isPositive ? '\u25B2' : '\u25BC';

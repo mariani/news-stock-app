@@ -45,23 +45,22 @@ export function WatchlistScreen({navigation}: Props) {
   const symbols = activeList?.symbols ?? [];
 
   useEffect(() => {
-    if (symbols.length > 0) {
-      fetchQuotes();
-      fetchMissingExchanges();
-    }
-  }, [symbols.length, fetchQuotes, fetchMissingExchanges]);
-
-  useEffect(() => {
-    if (mmRecommendationEnabled && symbols.length > 0) {
-      fetchRecommendations();
-    }
-  }, [mmRecommendationEnabled, symbols.length, fetchRecommendations]);
+    if (symbols.length === 0) return;
+    fetchMissingExchanges();
+    // Chain recommendations after quotes so allorigins.win isn't hit concurrently
+    fetchQuotes().then(() => {
+      if (mmRecommendationEnabled) {
+        fetchRecommendations();
+      }
+    });
+  }, [symbols.length, mmRecommendationEnabled, fetchQuotes, fetchMissingExchanges, fetchRecommendations]);
 
   const handleRefresh = useCallback(() => {
-    fetchQuotes(true);
-    if (mmRecommendationEnabled) {
-      fetchRecommendations();
-    }
+    fetchQuotes(true).then(() => {
+      if (mmRecommendationEnabled) {
+        fetchRecommendations();
+      }
+    });
   }, [fetchQuotes, fetchRecommendations, mmRecommendationEnabled]);
 
   useRefreshInterval(fetchQuotes, refreshInterval * 1000);
@@ -96,6 +95,7 @@ export function WatchlistScreen({navigation}: Props) {
         quote={quotes[item]}
         recommendation={mmRecommendationEnabled ? recommendations[item] : undefined}
         onPress={() => navigation.navigate('StockDetail', {symbol: item})}
+        onRemove={() => handleRemoveSymbol(item)}
       />
     ),
     [quotes, recommendations, symbolExchanges, mmRecommendationEnabled, navigation],

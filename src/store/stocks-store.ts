@@ -161,10 +161,9 @@ export const useStocksStore = create<StocksState>()(
         }
         set({isLoadingRecommendations: true});
         try {
-          const [diaCloses, qqqCloses] = await Promise.all([
-            fetchDailyCloses('DIA', 3),
-            fetchDailyCloses('QQQ', 3),
-          ]);
+          // Sequential — allorigins.win rate-limits concurrent requests
+          const diaCloses = await fetchDailyCloses('DIA', 3);
+          const qqqCloses = await fetchDailyCloses('QQQ', 3);
           for (const symbol of activeList.symbols) {
             try {
               const stockCloses = await fetchDailyCloses(symbol, 4);

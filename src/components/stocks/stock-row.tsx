@@ -11,9 +11,10 @@ interface Props {
   quote?: StockQuote;
   recommendation?: Recommendation;
   onPress: () => void;
+  onRemove?: () => void;
 }
 
-export function StockRow({symbol, exchange, quote, recommendation, onPress}: Props) {
+export function StockRow({symbol, exchange, quote, recommendation, onPress, onRemove}: Props) {
   const handleTickerPress = useCallback(() => {
     const suffix = exchange ? `:${exchange}` : '';
     Linking.openURL(`https://www.google.com/finance/quote/${symbol}${suffix}`);
@@ -32,6 +33,14 @@ export function StockRow({symbol, exchange, quote, recommendation, onPress}: Pro
                 {recommendation}
               </Text>
             </View>
+          ) : null}
+          {onRemove ? (
+            <TouchableOpacity
+              onPress={onRemove}
+              hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+              style={styles.removeButton}>
+              <Text style={styles.removeText}>✕</Text>
+            </TouchableOpacity>
           ) : null}
         </View>
       </View>
@@ -92,6 +101,14 @@ const styles = StyleSheet.create({
   },
   badgeTextHold: {
     color: colors.textSecondary,
+  },
+  removeButton: {
+    marginLeft: spacing.xs,
+  },
+  removeText: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   right: {
     alignItems: 'flex-end',

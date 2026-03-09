@@ -1,60 +1,29 @@
-import {alphaVantageClient, CORS_PROXY} from './api-client';
-import {alphaVantageLimiter} from '@/utils/rate-limiter';
 import type {StockQuote, SymbolSearchResult, Recommendation} from '@/types/stock';
 import {STOCK_SYMBOLS} from '@/data/stock-symbols';
 
-interface AlphaVantageGlobalQuote {
-  'Global Quote': {
-    '01. symbol': string;
-    '02. open': string;
-    '03. high': string;
-    '04. low': string;
-    '05. price': string;
-    '06. volume': string;
-    '07. latest trading day': string;
-    '08. previous close': string;
-    '09. change': string;
-    '10. change percent': string;
-  };
+interface YahooChartMeta {
+  exchangeName: string;
+  symbol: string;
+  regularMarketPrice: number;
+  regularMarketChange: number;
+  regularMarketChangePercent: number;
+  regularMarketDayHigh: number;
+  regularMarketDayLow: number;
+  regularMarketVolume: number;
+  regularMarketPreviousClose: number;
+  previousClose: number;
 }
 
-
-function parseGlobalQuote(
-  data: AlphaVantageGlobalQuote['Global Quote'],
-): StockQuote {
-  const changePercentStr = data['10. change percent'].replace('%', '');
-  return {
-    symbol: data['01. symbol'],
-    price: parseFloat(data['05. price']),
-    change: parseFloat(data['09. change']),
-    changePercent: parseFloat(changePercentStr) / 100,
-    high: parseFloat(data['03. high']),
-    low: parseFloat(data['04. low']),
-    volume: parseInt(data['06. volume'], 10),
-    previousClose: parseFloat(data['08. previous close']),
-    lastUpdated: new Date().toISOString(),
+interface YahooChartResult {
+  meta: YahooChartMeta;
+  indicators: {
+    quote: Array<{close: (number | null)[]}>;
   };
-}
-
-export async function fetchGlobalQuote(
-  symbol: string,
-): Promise<StockQuote> {
-  return alphaVantageLimiter.schedule(async () => {
-    const response = await alphaVantageClient.get<AlphaVantageGlobalQuote>(
-      '/query',
-      {params: {function: 'GLOBAL_QUOTE', symbol}},
-    );
-    const quote = response.data['Global Quote'];
-    if (!quote || !quote['05. price']) {
-      throw new Error(`No quote data for ${symbol}`);
-    }
-    return parseGlobalQuote(quote);
-  });
 }
 
 interface YahooChartResponse {
   chart: {
-    result: Array<{meta: {exchangeName: string}}> | null;
+    result: YahooChartResult[] | null;
     error: {code: string; description: string} | null;
   };
 }
@@ -72,8 +41,8 @@ const EXCHANGE_MAP: Record<string, string> = {
   PCX: 'NYSEARCA',
 };
 
-function buildYahooChartUrl(symbol: string): string {
-  const directUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
+function buildYahooChartUrl(symbol: string, range: string = '1d'): string {
+  const directUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}`;
   // Use CORS proxy in all browser contexts (Yahoo Finance blocks cross-origin requests)
   const useProxy = typeof window !== 'undefined' && window.location != null;
   if (!useProxy) {
@@ -81,26 +50,81 @@ function buildYahooChartUrl(symbol: string): string {
     return directUrl;
   }
   // allorigins.win fetches with browser-like headers, avoiding Yahoo Finance's bot detection
-  // /raw endpoint returns the response body directly (no wrapper JSON)
   return `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
+}
+
+// Shared fetch helper — clearTimeout in finally so it always runs
+async function fetchYahooChart(
+  symbol: string,
+  range: string = '1d',
+): Promise<YahooChartResult | null> {
+  const url = buildYahooChartUrl(symbol, range);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(url, {cache: 'no-store', signal: controller.signal});
+    if (!response.ok) {
+      return null;
+    }
+    const data: YahooChartResponse = await response.json();
+    return data.chart?.result?.[0] ?? null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+export async function fetchGlobalQuote(symbol: string): Promise<StockQuote> {
+  // Use 5d range so we always have at least 2 daily closes for change calculation
+  const result = await fetchYahooChart(symbol, '5d');
+  const meta = result?.meta;
+  if (!meta || meta.regularMarketPrice == null) {
+    throw new Error(`No quote data for ${symbol}`);
+  }
+
+  const closes = (result?.indicators?.quote?.[0]?.close ?? []).filter(
+    (c): c is number => c != null,
+  );
+
+  let change: number;
+  let previousClose: number;
+
+  if (meta.regularMarketChange != null && meta.regularMarketChange !== 0) {
+    // Market was active today — Yahoo Finance provides the accurate intraday change
+    change = meta.regularMarketChange;
+    previousClose =
+      meta.regularMarketPreviousClose ??
+      meta.previousClose ??
+      meta.regularMarketPrice - change;
+  } else if (closes.length >= 2) {
+    // Weekend / market closed — derive change from last two trading day closes
+    change = closes[closes.length - 1] - closes[closes.length - 2];
+    previousClose = closes[closes.length - 2];
+  } else {
+    change = 0;
+    previousClose =
+      meta.regularMarketPreviousClose ?? meta.previousClose ?? meta.regularMarketPrice;
+  }
+
+  const changePercent = previousClose ? change / previousClose : 0;
+  return {
+    symbol,
+    price: meta.regularMarketPrice,
+    change,
+    changePercent,
+    high: meta.regularMarketDayHigh ?? meta.regularMarketPrice,
+    low: meta.regularMarketDayLow ?? meta.regularMarketPrice,
+    volume: meta.regularMarketVolume ?? 0,
+    previousClose,
+    lastUpdated: new Date().toISOString(),
+  };
 }
 
 // Called once per symbol; result is persisted so this only runs when exchange is unknown.
 export async function fetchSymbolExchange(symbol: string): Promise<string> {
   console.log(`[fetchSymbolExchange] starting for ${symbol}`);
   try {
-    const url = buildYahooChartUrl(symbol);
-    console.log(`[fetchSymbolExchange] url: ${url}`);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    const response = await fetch(url, {cache: 'no-store', signal: controller.signal});
-    clearTimeout(timeoutId);
-    console.log(`[fetchSymbolExchange] status ${response.status} for ${symbol}`);
-    if (!response.ok) {
-      return '';
-    }
-    const data: YahooChartResponse = await response.json();
-    const exchangeName = data.chart?.result?.[0]?.meta?.exchangeName ?? '';
+    const result = await fetchYahooChart(symbol, '1d');
+    const exchangeName = result?.meta?.exchangeName ?? '';
     const exchange = EXCHANGE_MAP[exchangeName] ?? '';
     console.log(`[fetchSymbolExchange] ${symbol} exchangeName="${exchangeName}" → "${exchange}"`);
     return exchange;
@@ -124,28 +148,17 @@ export function searchSymbol(keywords: string): Promise<SymbolSearchResult[]> {
   return Promise.resolve(results);
 }
 
-interface AlphaVantageDailyResponse {
-  'Time Series (Daily)': Record<string, {'4. close': string}>;
-}
-
 export async function fetchDailyCloses(
   symbol: string,
   days: number,
 ): Promise<number[]> {
-  return alphaVantageLimiter.schedule(async () => {
-    const response = await alphaVantageClient.get<AlphaVantageDailyResponse>(
-      '/query',
-      {params: {function: 'TIME_SERIES_DAILY', symbol, outputsize: 'compact'}},
-    );
-    const series = response.data['Time Series (Daily)'];
-    if (!series) {
-      return [];
-    }
-    return Object.keys(series)
-      .sort((a, b) => b.localeCompare(a))
-      .slice(0, days)
-      .map(date => parseFloat(series[date]['4. close']));
-  });
+  // Use 1mo range to ensure we get enough trading days
+  const result = await fetchYahooChart(symbol, '1mo');
+  const closes = result?.indicators?.quote?.[0]?.close ?? [];
+  return closes
+    .filter((c): c is number => c != null)
+    .reverse()  // most recent first
+    .slice(0, days);
 }
 
 export function computeRecommendation(
