@@ -17,15 +17,6 @@ interface AlphaVantageGlobalQuote {
   };
 }
 
-interface AlphaVantageSearchResult {
-  bestMatches: {
-    '1. symbol': string;
-    '2. name': string;
-    '3. type': string;
-    '4. region': string;
-    '8. currency': string;
-  }[];
-}
 
 function parseGlobalQuote(
   data: AlphaVantageGlobalQuote['Global Quote'],
@@ -118,11 +109,19 @@ export async function fetchSymbolExchange(symbol: string): Promise<string> {
   }
 }
 
+interface AlphaVantageSearchResult {
+  bestMatches: {
+    '1. symbol': string;
+    '2. name': string;
+    '3. type': string;
+  }[];
+}
+
 export async function searchSymbol(
   keywords: string,
 ): Promise<SymbolSearchResult[]> {
-  // Search bypasses the rate limiter so it responds instantly
-  // even when quote fetches are queued
+  // Goes through the CORS proxy (codetabs) on web — same path as quotes/recommendations.
+  // Does NOT use the rate limiter so results appear immediately.
   const response = await alphaVantageClient.get<AlphaVantageSearchResult>(
     '/query',
     {params: {function: 'SYMBOL_SEARCH', keywords}},
@@ -131,8 +130,6 @@ export async function searchSymbol(
     symbol: match['1. symbol'],
     name: match['2. name'],
     type: match['3. type'],
-    region: match['4. region'],
-    currency: match['8. currency'],
   }));
 }
 
