@@ -13,16 +13,10 @@ export function setAlphaVantageApiKey(key: string) {
   alphaVantageApiKey = key;
 }
 
-// Detect if running on localhost (where direct API calls work)
-// or on a deployed site (where we need a CORS proxy)
-function isLocalhost(): boolean {
-  if (typeof window === 'undefined') {
-    return true;
-  }
-  return (
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1'
-  );
+// Use the CORS proxy whenever running in a web browser (including localhost).
+// React Native native has no CORS restrictions so it skips the proxy.
+function needsProxy(): boolean {
+  return typeof window !== 'undefined' && window.location != null;
 }
 
 export const CORS_PROXY = 'https://api.codetabs.com/v1/proxy/?quest=';
@@ -43,7 +37,7 @@ export const newsApiClient = axios.create({
 newsApiClient.interceptors.request.use(config => {
   config.params = {...config.params, apiKey: newsApiKey};
 
-  if (!isLocalhost() && config.baseURL) {
+  if (needsProxy() && config.baseURL) {
     const fullUrl = buildProxiedUrl(
       config.baseURL,
       config.url ?? '',
@@ -65,7 +59,7 @@ export const alphaVantageClient = axios.create({
 alphaVantageClient.interceptors.request.use(config => {
   config.params = {...config.params, apikey: alphaVantageApiKey};
 
-  if (!isLocalhost() && config.baseURL) {
+  if (needsProxy() && config.baseURL) {
     const fullUrl = buildProxiedUrl(
       config.baseURL,
       config.url ?? '',

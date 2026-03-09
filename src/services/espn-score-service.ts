@@ -27,6 +27,7 @@ const LEAGUES: [string, string][] = [
 
 function mapCompetition(
   eventId: string,
+  eventDate: string,
   comp: EspnCompetition,
   league: string,
 ): LiveGame {
@@ -35,6 +36,7 @@ function mapCompetition(
 
   return {
     id: eventId,
+    date: eventDate,
     homeTeam: home.team.displayName,
     awayTeam: away.team.displayName,
     homeScore: home.score,
@@ -46,39 +48,49 @@ function mapCompetition(
   };
 }
 
+function espnDateRange(): string {
+  const today = new Date();
+  const future = new Date(today);
+  future.setDate(today.getDate() + 7);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '');
+  return `${fmt(today)}-${fmt(future)}`;
+}
+
 async function fetchLeagueScoreboard(
   sportLeague: string,
   leagueName: string,
 ): Promise<LiveGame[]> {
-  const directUrl = `${ESPN_BASE}/${sportLeague}/scoreboard`;
-  let url: string;
-  if (inWebBrowser()) {
-    // Add timestamp so codetabs doesn't serve a cached scoreboard
-    const ts = Date.now();
-    url = `${CORS_PROXY}${directUrl}%3F_t%3D${ts}`;
-  } else {
-    url = directUrl;
-  }
+  const base = `${ESPN_BASE}/${sportLeague}/scoreboard`;
+  const dates = espnDateRange();
+  // Fetch a 7-day window so upcoming games (not just today's) appear
+  const url = inWebBrowser()
+    ? `${CORS_PROXY}${base}%3Fdates%3D${dates}%26_t%3D${Date.now()}`
+    : `${base}?dates=${dates}`;
+
   const response = await fetch(url, {cache: 'no-store'});
   if (!response.ok) {
+    console.log(`[ESPN] ${leagueName} failed: ${response.status}`);
     return [];
   }
 
   const data: EspnScoreboardResponse = await response.json();
-
   return data.events.flatMap(event =>
-    event.competitions.map(comp => mapCompetition(event.id, comp, leagueName)),
+    event.competitions.map(comp => mapCompetition(event.id, event.date, comp, leagueName)),
   );
 }
 
 export async function fetchAllLiveScores(): Promise<LiveGame[]> {
-  const results = await Promise.all(
-    LEAGUES.map(([path, name]) =>
-      fetchLeagueScoreboard(path, name).catch(() => [] as LiveGame[]),
-    ),
-  );
-
-  return results.flat();
+  // Sequential (not parallel) to avoid proxy rate limits
+  const results: LiveGame[] = [];
+  for (const [path, name] of LEAGUES) {
+    try {
+      const games = await fetchLeagueScoreboard(path, name);
+      results.push(...games);
+    } catch {
+      // Skip failed leagues silently
+    }
+  }
+  return results;
 }
 
 export function filterGamesForTeams(

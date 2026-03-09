@@ -5,13 +5,43 @@ import type {LiveGame} from '@/types/live-score';
 
 const POLL_INTERVAL_MS = 30_000;
 
+function teamInGame(game: LiveGame, team: string): boolean {
+  const lt = team.toLowerCase();
+  return (
+    game.homeTeam.toLowerCase().includes(lt) ||
+    game.awayTeam.toLowerCase().includes(lt)
+  );
+}
+
 function matchesTeams(game: LiveGame, teams: string[]): boolean {
-  const h = game.homeTeam.toLowerCase();
-  const a = game.awayTeam.toLowerCase();
-  return teams.some(t => {
-    const lt = t.toLowerCase();
-    return h.includes(lt) || a.includes(lt);
-  });
+  return teams.some(t => teamInGame(game, t));
+}
+
+// Keep all live games + only the next upcoming game per configured team, sorted by date.
+function selectGamesToShow(allGames: LiveGame[], teams: string[]): LiveGame[] {
+  const live = allGames.filter(
+    g => g.state === 'in' && matchesTeams(g, teams),
+  );
+
+  const upcoming = allGames
+    .filter(g => g.state === 'pre' && matchesTeams(g, teams))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // For each team pick their next (earliest) upcoming game
+  const seen = new Set<string>();
+  const nextPerTeam: LiveGame[] = [];
+  for (const team of teams) {
+    const next = upcoming.find(g => teamInGame(g, team) && !seen.has(g.id));
+    if (next) {
+      seen.add(next.id);
+      nextPerTeam.push(next);
+    }
+  }
+
+  // Sort the selected upcoming games by date
+  nextPerTeam.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  return [...live, ...nextPerTeam];
 }
 
 export function useLiveScores(teams: string[]): {liveGames: LiveGame[]} {
@@ -30,8 +60,7 @@ export function useLiveScores(teams: string[]): {liveGames: LiveGame[]} {
     }
     try {
       const allGames = await fetchAllLiveScores();
-      const matched = allGames.filter(g => matchesTeams(g, teamsRef.current));
-      setLiveGames(matched);
+      setLiveGames(selectGamesToShow(allGames, teamsRef.current));
     } catch {
       setLiveGames([]);
     }

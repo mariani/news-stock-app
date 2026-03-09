@@ -1,5 +1,6 @@
 export interface LiveGame {
   id: string;
+  date: string; // ISO 8601, e.g. "2026-03-10T00:00Z"
   homeTeam: string;
   awayTeam: string;
   homeScore: string;
@@ -16,6 +17,7 @@ export interface EspnScoreboardResponse {
 
 export interface EspnEvent {
   id: string;
+  date: string;
   competitions: EspnCompetition[];
 }
 
