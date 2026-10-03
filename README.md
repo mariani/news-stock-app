@@ -1,3 +1,35 @@
+# News & Stocks
+
+A personal news, stocks, sports-scores and weather dashboard. React Native, with a web build via
+`react-native-web` + webpack.
+
+## Web deployment (Vercel)
+
+The web build is a static site (`npm run build:web` -> `dist/`) plus four small serverless functions in
+`api/`. The browser never talks to NewsAPI, Yahoo or ESPN directly, and the bundle contains **no API keys**:
+
+| Route | Upstream | Notes |
+| --- | --- | --- |
+| `/api/news` | NewsAPI (`top-headlines`, `everything`) | Adds `NEWS_API_KEY` on the server; CDN-cached 10 min (free plan = 100 requests/day) |
+| `/api/yahoo` | Yahoo Finance chart | Symbol/range validated; CDN-cached 30 s |
+| `/api/espn` | ESPN scoreboards | League allowlist. ESPN no longer accepts date ranges, so a range is split into single days and merged (today cached 30 s, later days 10 min) |
+
+User-added RSS feeds are still fetched straight from the browser (many sites block that with CORS); a
+proxy for them would be an open fetch-any-URL endpoint, so it was left out on purpose.
+
+**Environment variable:** `NEWS_API_KEY` (Vercel project settings, or `.env` for local dev). Nothing else is needed.
+
+**Local dev:** `npm ci`, then `npm run web` (http://localhost:9090). The dev server serves the same `api/*.js`
+files that Vercel runs.
+
+**Deploy:** pushes to `main` deploy through Vercel's GitHub integration once it is connected; otherwise
+`vercel --prod` from this directory. This replaced the earlier GitHub Pages deployment, which had to compile
+the keys into the public bundle.
+
+---
+
+## React Native (native apps)
+
 This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
 
 # Getting Started

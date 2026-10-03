@@ -1,6 +1,6 @@
 import type {StockQuote, SymbolSearchResult, Recommendation} from '@/types/stock';
 import {STOCK_SYMBOLS} from '@/data/stock-symbols';
-import {CORS_PROXY} from './api-client';
+import {isWeb} from './api-client';
 
 interface YahooChartMeta {
   exchangeName: string;
@@ -43,14 +43,11 @@ const EXCHANGE_MAP: Record<string, string> = {
 };
 
 function buildYahooChartUrl(symbol: string, range: string = '1d'): string {
-  const base = 'https://query2.finance.yahoo.com';
-  const path = `/v8/finance/chart/${encodeURIComponent(symbol)}`;
-  const useProxy = typeof window !== 'undefined' && window.location != null;
-  if (!useProxy) {
-    return `${base}${path}?interval=1d&range=${range}`;
+  // Yahoo blocks cross-origin browser calls, so the web build goes through our own /api/yahoo function.
+  if (isWeb()) {
+    return `/api/yahoo?symbol=${encodeURIComponent(symbol)}&range=${range}`;
   }
-  // codetabs CORS proxy — same as ESPN; encode ? and & so codetabs forwards the full URL
-  return `${CORS_PROXY}${base}${path}%3Finterval%3D1d%26range%3D${range}`;
+  return `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}`;
 }
 
 // Shared fetch helper — clearTimeout in finally so it always runs

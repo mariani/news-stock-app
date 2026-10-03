@@ -89,7 +89,7 @@ export function useLiveScores(teams: string[]): {liveGames: LiveGame[]} {
       return;
     }
     // Fetch yesterday's completed games first (sequentially before live polling
-    // to avoid concurrent requests hitting the codetabs proxy rate limit)
+    // to keep concurrent requests down)
     fetchAllPastScores()
       .then(past => {
         pastGamesRef.current = past;

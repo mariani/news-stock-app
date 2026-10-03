@@ -3,14 +3,9 @@ import type {
   EspnCompetition,
   LiveGame,
 } from '@/types/live-score';
-import {CORS_PROXY} from './api-client';
+import {isWeb} from './api-client';
 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports';
-
-// ESPN blocks cross-origin browser requests; detect browser context (not RN native)
-function inWebBrowser(): boolean {
-  return typeof window !== 'undefined' && window.location != null;
-}
 
 const LEAGUES: [string, string][] = [
   ['basketball/nba', 'NBA'],
@@ -62,10 +57,10 @@ async function fetchLeagueDefault(
   sportLeague: string,
   leagueName: string,
 ): Promise<LiveGame[]> {
-  const base = `${ESPN_BASE}/${sportLeague}/scoreboard`;
-  const url = inWebBrowser()
-    ? `${CORS_PROXY}${base}%3F_t%3D${Date.now()}`
-    : `${base}?_t=${Date.now()}`;
+  // ESPN blocks cross-origin browser requests, so the web build goes through our own /api/espn function.
+  const url = isWeb()
+    ? `/api/espn?league=${sportLeague}`
+    : `${ESPN_BASE}/${sportLeague}/scoreboard?_t=${Date.now()}`;
 
   const response = await fetch(url, {cache: 'no-store'});
   if (!response.ok) {
@@ -81,12 +76,12 @@ async function fetchLeagueScoreboard(
   sportLeague: string,
   leagueName: string,
 ): Promise<LiveGame[]> {
-  const base = `${ESPN_BASE}/${sportLeague}/scoreboard`;
   const dates = espnDateRange();
-  // Fetch a 7-day window so upcoming games (not just today's) appear
-  const url = inWebBrowser()
-    ? `${CORS_PROXY}${base}%3Fdates%3D${dates}%26_t%3D${Date.now()}`
-    : `${base}?dates=${dates}`;
+  // Fetch a 7-day window so upcoming games (not just today's) appear. ESPN itself no longer accepts a
+  // date range, so on web the /api/espn function splits it into single days and merges the result.
+  const url = isWeb()
+    ? `/api/espn?league=${sportLeague}&dates=${dates}`
+    : `${ESPN_BASE}/${sportLeague}/scoreboard?dates=${dates}`;
 
   const response = await fetch(url, {cache: 'no-store'});
   if (!response.ok) {

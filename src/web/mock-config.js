@@ -1,6 +1,5 @@
-// Web mock for react-native-config
-// On web, read from environment or use defaults
+// Web stand-in for react-native-config. The web build deliberately holds no API keys: it calls the
+// /api functions, which read their keys from the server environment.
 module.exports = {
-  NEWS_API_KEY: process.env.NEWS_API_KEY || '',
-  ALPHA_VANTAGE_API_KEY: process.env.ALPHA_VANTAGE_API_KEY || '',
+  NEWS_API_KEY: '',
 };

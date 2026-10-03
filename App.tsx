@@ -4,17 +4,13 @@ import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {NavigationContainer} from '@react-navigation/native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {RootNavigator} from '@/navigation/root-navigator';
-import {setNewsApiKey, setAlphaVantageApiKey} from '@/services/api-client';
+import {setNewsApiKey} from '@/services/api-client';
 
-// Globals injected by webpack DefinePlugin (web) or react-native-config (native)
+// Native only: the web build keeps its key on the server (api/news.js) and never ships one.
 declare const __NEWS_API_KEY__: string | undefined;
-declare const __ALPHA_VANTAGE_API_KEY__: string | undefined;
 
-if (typeof __NEWS_API_KEY__ !== 'undefined') {
+if (typeof __NEWS_API_KEY__ !== 'undefined' && __NEWS_API_KEY__) {
   setNewsApiKey(__NEWS_API_KEY__);
-}
-if (typeof __ALPHA_VANTAGE_API_KEY__ !== 'undefined') {
-  setAlphaVantageApiKey(__ALPHA_VANTAGE_API_KEY__);
 }
 
 function App() {

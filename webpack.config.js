@@ -14,9 +14,11 @@ if (fs.existsSync(envFile)) {
     }
   });
 }
-// Environment variables (e.g. from CI) take precedence over .env file
-if (process.env.NEWS_API_KEY) envVars.NEWS_API_KEY = process.env.NEWS_API_KEY;
-if (process.env.ALPHA_VANTAGE_API_KEY) envVars.ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY;
+// Keys are NOT compiled into the web bundle: the /api functions read them from the environment on the server.
+// For local dev, make the .env values visible to those functions (real environment variables win).
+for (const [key, value] of Object.entries(envVars)) {
+  if (process.env[key] === undefined) process.env[key] = value;
+}
 
 const compileNodeModules = [
   'react-native',
@@ -86,8 +88,6 @@ module.exports = {
   plugins: [
     new webpack.DefinePlugin({
       __DEV__: JSON.stringify(true),
-      __NEWS_API_KEY__: JSON.stringify(envVars.NEWS_API_KEY || ''),
-      __ALPHA_VANTAGE_API_KEY__: JSON.stringify(envVars.ALPHA_VANTAGE_API_KEY || ''),
       process: {env: {}},
     }),
     new HtmlWebpackPlugin({
@@ -98,6 +98,20 @@ module.exports = {
     static: path.resolve(__dirname, 'public'),
     hot: true,
     port: 9090,
+    // Serve the same api/*.js functions that Vercel runs in production.
+    setupMiddlewares: (middlewares, devServer) => {
+      devServer.app.all('/api/:name', (req, res) => {
+        const name = req.params.name;
+        const file = /^[a-z]+$/.test(name) ? path.resolve(__dirname, 'api', `${name}.js`) : null;
+        if (!file || !fs.existsSync(file)) {
+          res.status(404).json({error: 'Not found'});
+          return;
+        }
+        delete require.cache[file];
+        require(file)(req, res);
+      });
+      return middlewares;
+    },
     client: {
       overlay: {
         warnings: false,

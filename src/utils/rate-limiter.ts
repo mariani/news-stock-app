@@ -1,4 +1,3 @@
-import {ALPHA_VANTAGE_MIN_INTERVAL_MS} from '@/constants/api';
 
 type QueuedRequest = {
   execute: () => Promise<unknown>;
@@ -53,7 +52,3 @@ class RateLimiter {
     this.processing = false;
   }
 }
-
-export const alphaVantageLimiter = new RateLimiter(
-  ALPHA_VANTAGE_MIN_INTERVAL_MS,
-);
